@@ -57,6 +57,7 @@ class TrainerDataLoadingMixin(ABC):
     use_ddp: bool
     use_ddp2: bool
     use_horovod: bool
+    use_fairscale: bool
     shown_warnings: ...
     val_check_interval: float
     use_tpu: bool
@@ -112,7 +113,7 @@ class TrainerDataLoadingMixin(ABC):
 
         if not is_dataloader or is_iterable_ds:
             return dataloader
-        need_dist_sampler = (self.use_ddp or self.use_ddp2 or self.use_horovod or self.use_tpu)
+        need_dist_sampler = (self.use_ddp or self.use_ddp2 or self.use_horovod or self.use_fairscale or self.use_tpu)
 
         if self.replace_sampler_ddp and need_dist_sampler:
             if not isinstance(dataloader.sampler, (SequentialSampler, RandomSampler)):
@@ -148,6 +149,7 @@ class TrainerDataLoadingMixin(ABC):
             world_size = {
                 "ddp": self.num_nodes * self.num_processes,
                 "ddp_spawn": self.num_nodes * self.num_processes,
+                "fairscale": self.num_nodes * self.num_processes,
                 "ddp2": self.num_nodes,
                 "ddp_cpu": self.num_processes * self.num_nodes
             }
