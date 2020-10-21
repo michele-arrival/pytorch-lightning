@@ -524,7 +524,7 @@ def test_checkpoint_repeated_strategy(tmpdir):
 
     os.environ['PL_DEV_DEBUG'] = '1'
 
-    checkpoint_callback = ModelCheckpoint(monitor='val_loss', filepath=osp.join(tmpdir, "{epoch:02d}"))
+    # checkpoint_callback = ModelCheckpoint(monitor='val_loss', filepath=osp.join(tmpdir, "{epoch:02d}"))
 
     class ExtendedBoringModel(BoringModel):
 
@@ -541,14 +541,14 @@ def test_checkpoint_repeated_strategy(tmpdir):
                          limit_train_batches=2,
                          limit_val_batches=2,
                          limit_test_batches=2,
-                         checkpoint_callback=checkpoint_callback
+                         # checkpoint_callback=checkpoint_callback
                          )
 
     trainer.fit(model)
     trainer.test(model)
     # test only one chechpoint
 
-    assert str(os.listdir(tmpdir)) == "['epoch=00.ckpt', 'lightning_logs']"
+    # assert str(os.listdir(tmpdir)) == "['epoch=00.ckpt', 'lightning_logs']"
     assert str(os.listdir(osp.join(tmpdir, 'lightning_logs'))) == "['version_0']"
 
     assert [*model._func_called_count] == ['training_step', 'training_step_end', 'training_epoch_end', 'test_step', 'test_epoch_end']
@@ -561,11 +561,21 @@ def test_checkpoint_repeated_strategy(tmpdir):
     assert model.num_calls('test_epoch_end') == 1
 
     def get_last_checkpoint():
-        ckpts = os.listdir(tmpdir)
-        ckpts_map = {int(x.split("=")[1].split('.')[0]): osp.join(tmpdir, x) for x in ckpts if "epoch" in x}
-        print(ckpts_map)
-        num_ckpts = len(ckpts_map) - 1
-        return ckpts_map[num_ckpts]
+        logs_dir = osp.join(tmpdir, 'lightning_logs')
+        versions = os.listdir(logs_dir)
+        versions.sort()
+
+        last_version = versions[-1]
+        ckpt_dir = osp.join(logs_dir, last_version, "checkpoints")
+
+        ckpts = os.listdir(ckpt_dir)
+        ckpts.sort()
+        return osp.join(ckpt_dir, ckpts[-1])
+
+        # ckpts_map = {int(x.split("=")[1].split('.')[0]): osp.join(ckpt_dir, x) for x in ckpts if "epoch" in x}
+        # print(ckpts_map)
+        # num_ckpts = len(ckpts_map) - 1
+        # return ckpts_map[num_ckpts]
 
     for idx in range(1, 5):
         # load from checkpoint
@@ -576,12 +586,11 @@ def test_checkpoint_repeated_strategy(tmpdir):
                              limit_train_batches=2,
                              limit_val_batches=2,
                              limit_test_batches=2,
-                             resume_from_checkpoint=chk,
-                             checkpoint_callback=checkpoint_callback)
+                             resume_from_checkpoint=chk)
         trainer.fit(model)
         trainer.test(model)
         assert [*model._func_called_count] == ['training_step', 'training_step_end', 'training_epoch_end', 'test_step', 'test_epoch_end', 'validation_step', 'validation_epoch_end']
-        assert str(os.listdir(tmpdir)) == "['epoch=00.ckpt', 'lightning_logs']"
+        # assert str(os.listdir(tmpdir)) == "['epoch=00.ckpt', 'lightning_logs']"
         lightning_logs_path = osp.join(tmpdir, 'lightning_logs')
         assert sorted(os.listdir(lightning_logs_path)) == [f"version_{i}" for i in range(idx + 1)]
         assert model.num_calls('training_step') == 2
